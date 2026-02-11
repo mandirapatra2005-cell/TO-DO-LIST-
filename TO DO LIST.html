@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Trello-Inspired Task Manager</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: url('https://images.unsplash.com/photo-1519389950473-47ba0277781c') no-repeat center center fixed;
+      background-size: cover;
+      margin: 0;
+      padding: 20px;
+      cursor: none; /* Hide default cursor */
+    }
+    
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #fff;
+      font-size: 2.5em;
+      text-shadow: 2px 2px #000;
+    }
+    
+    #board {
+      display: flex;
+      justify-content: space-around;
+      gap: 20px;
+    }
+    
+    .column {
+      flex: 1;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      color: #fff;
+      background-size: cover;
+      background-position: center;
+    }
+    
+    .column h2 {
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 1.5em;
+      text-shadow: 1px 1px #000;
+    }
+    
+    /* Related images for each section */
+    .todo {
+      background: url('https://images.unsplash.com/photo-1584697964403-6f3f1a3f7d9d') no-repeat center/cover;
+    }
+    
+    .inprogress {
+      background: url('https://images.unsplash.com/photo-1504384308090-c894fdcc538d') no-repeat center/cover;
+    }
+    
+    .done {
+      background: url('https://images.unsplash.com/photo-1507842217343-583bb7270b66') no-repeat center/cover;
+    }
+    
+    .task-list {
+      min-height: 200px;
+      padding: 10px;
+      background: rgba(255,255,255,0.85);
+      border-radius: 5px;
+    }
+    
+    .task {
+      background: #007BFF;
+      color: #fff;
+      margin: 5px 0;
+      padding: 10px;
+      border-radius: 5px;
+      cursor: grab;
+      transition: transform 0.2s ease;
+    }
+    
+    .task:hover {
+      transform: scale(1.05);
+    }
+    
+    .task.dragging {
+      opacity: 0.5;
+    }
+    
+    button {
+      margin-top: 10px;
+      padding: 8px;
+      background: #28a745;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      width: 100%;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+    
+    button:hover {
+      background: #218838;
+    }
+    
+    /* Custom red round cursor */
+    .cursor {
+      position: fixed;
+      width: 20px;
+      height: 20px;
+      background: red;
+      border-radius: 50%;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      z-index: 9999;
+    }
+  </style>
+</head>
+<body>
+  <h1>Trello-Inspired Task List</h1>
+
+  <!-- Instructions Section -->
+  <div id="instructions">
+    <h2>How It Works</h2>
+    <ul>
+      <li><strong>To Do:</strong> Add new tasks here. Each task will automatically include the date and time when it was created. Tasks are shown with a 📋 checklist icon.</li>
+      <li><strong>In Progress:</strong> Move tasks here when you start working on them. They will display with a ⏳ checkbox and the date/time when they were started. Clicking the checkbox will mark the task as completed and move it to the Done section.</li>
+      <li><strong>Done:</strong> Completed tasks appear here with a ✅ icon and the date/time when they were finished. The task name will be shown as “Task Name – Completed”.</li>
+      <li><strong>Delete:</strong> Each task has a delete button to remove it individually.</li>
+      <li><strong>Clear All:</strong> Each section has a “Clear All” button to remove all tasks from that section at once.</li>
+      <li><strong>Custom Cursor:</strong> The website uses a red round cursor for a modern interactive feel.</li>
+    </ul>
+  </div>
+
+  <div id="board">
+    <div class="column todo" data-status="todo">
+      <h2>To Do</h2>
+      <div class="task-list" id="todo"></div>
+      <button onclick="addTask('todo')">+ Add Task</button>
+      <button onclick="clearSection('todo')">Clear All</button>
+    </div>
+    <div class="column inprogress" data-status="inprogress">
+      <h2>In Progress</h2>
+      <div class="task-list" id="inprogress"></div>
+      <button onclick="addTask('inprogress')">+ Add Task</button>
+      <button onclick="clearSection('inprogress')">Clear All</button>
+    </div>
+    <div class="column done" data-status="done">
+      <h2>Done</h2>
+      <div class="task-list" id="done"></div>
+      <button onclick="clearSection('done')">Clear All</button>
+    </div>
+  </div>
+
+  <!-- Custom cursor -->
+  <div class="cursor"></div>
+
+  <script>
+    let tasks = JSON.parse(localStorage.getItem("tasks")) || {
+      todo: [],
+      inprogress: [],
+      done: []
+    };
+
+    function getDateTime() {
+      const now = new Date();
+      return now.toLocaleString(); // e.g. "09/02/2026, 12:45:30 PM"
+    }
+
+    function renderTasks() {
+      ["todo", "inprogress", "done"].forEach(status => {
+        const list = document.getElementById(status);
+        list.innerHTML = "";
+        tasks[status].forEach((taskObj, index) => {
+          const div = document.createElement("div");
+          div.className = "task";
+
+          if (status === "todo") {
+            div.innerHTML = `<input type="checkbox" onclick="startTask('${taskObj.text}', ${index})"> 
+                             <span>${taskObj.text} (Added: ${taskObj.created})</span> 
+                             <button onclick="deleteTask('${status}', ${index})">Delete</button>`;
+          } else if (status === "inprogress") {
+            div.innerHTML = `<input type="checkbox" onclick="completeTask('${taskObj.text}', ${index})"> 
+                             <span>${taskObj.text} (Started: ${taskObj.started})</span> 
+                             <button onclick="deleteTask('${status}', ${index})">Delete</button>`;
+          } else {
+            div.innerHTML = `✅ <span>${taskObj.text} - Completed (Finished: ${taskObj.completed})</span> 
+                             <button onclick="deleteTask('${status}', ${index})">Delete</button>`;
+          }
+
+          list.appendChild(div);
+        });
+      });
+    }
+
+    function addTask(status) {
+      const task = prompt("Enter task:");
+      if (task) {
+        tasks[status].push({ text: task, created: getDateTime() });
+        saveTasks();
+        renderTasks();
+      }
+    }
+
+    function startTask(task, index) {
+      const startedTime = getDateTime();
+      tasks["todo"].splice(index, 1);
+      tasks["inprogress"].push({ text: task, started: startedTime });
+      saveTasks();
+      renderTasks();
+    }
+
+    function completeTask(task, index) {
+      const completedTime = getDateTime();
+      tasks["inprogress"].splice(index, 1);
+      tasks["done"].push({ text: task, completed: completedTime });
+      saveTasks();
+      renderTasks();
+    }
+
+    function deleteTask(status, index) {
+      tasks[status].splice(index, 1);
+      saveTasks();
+      renderTasks();
+    }
+
+    function clearSection(status) {
+      tasks[status] = [];
+      saveTasks();
+      renderTasks();
+    }
+
+    function saveTasks() {
+      localStorage.setItem("tasks", JSON.stringify(tasks));
+    }
+
+    renderTasks();
+
+    // Custom cursor movement
+    const cursor = document.querySelector(".cursor");
+    document.addEventListener("mousemove", e => {
+      cursor.style.left = e.pageX + "px";
+      cursor.style.top = e.pageY + "px";
+    });
+  </script>
+</body>
+</html>
